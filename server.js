@@ -17,7 +17,7 @@ connection.connect(function(err) {
   if (err) throw err;
   start();
 });
-
+// Initial query
 function start(){
     inquirer.prompt({
         name: "action",
@@ -28,7 +28,6 @@ function start(){
             "View all Roles",
             "View all Departments",
             "View all Employees by Department",
-            "View all Employees by Manager",
             "Add Employee",
             "Add Department",
             "Add Roles",
@@ -56,10 +55,6 @@ function start(){
 
             case "View all Employees by Department":
                 employeesByDepartment();    
-            break;
-
-            case "View all Employees by Manager":
-                employeesByManager();
             break;
     
             case "Add Employee":
@@ -105,38 +100,70 @@ function start(){
     })
 }
 
+// function to display all Employees details
 function allEmployees(){
-    connection.query("SELECT * FROM employee", function(err, res) {
+    connection.query("SELECT employee.id,employee.first_name,employee.last_name,employee.manager_id,roleTable.title,roleTable.salary,department.departmentname FROM ((employee INNER JOIN roleTable ON employee.role_id = roleTable.id) INNER JOIN department ON department.id = roleTable.department_id)",function(err,res){
         if (err) throw err;
+        console.log("All Employees");
         console.table(res);
         start();
-    });
+    })
 }
 
+// function to display all Roles
 function allRoles(){
     connection.query("SELECT * FROM roleTable", function(err, res) {
         if (err) throw err;
+        console.log("All Roles");
         console.table(res);
         start();
     });
 }
 
+//function to display all Departments
 function allDepartments(){
-    connection.query("SELECT * FROM roleTable", function(err, res) {
+    connection.query("SELECT * FROM department", function(err, res) {
         if (err) throw err;
+        console.log("All Departments");
         console.table(res);
         start();
     });
 }
 
-// function employeesByDepartment(){
+// function to display Employees by Department
+function employeesByDepartment(){
+    connection.query("SELECT departmentname FROM department",function(err,res){
+        inquirer.prompt([
+            {
+                type: "rawlist",
+                message: "Select the department",
+                name: "deptName",
+                choices: function(){
+                    var choiceArray = [];
+                    for (var i = 0; i < res.length; i++) {
+                        choiceArray.push(res[i].departmentname);
+                }
+                    return choiceArray;
+                }
+            }
+        ]).then(function(data){ 
+            connection.query("SELECT id FROM department WHERE ?",{departmentname: data.deptName},function(err,response){
+                empByDept(response)
+            })
+        })
+    })
 
-// }
+}
+function empByDept(response){
+    connection.query("SELECT employee.first_name,employee.last_name,employee.role_id,department.departmentname FROM ((employee INNER JOIN roleTable ON employee.role_id = roleTable.id) LEFT JOIN department ON department.id = roleTable.department_id) WHERE department.?",{id: response[0].id},function(err,res){    
+        if (err) throw err;
+        console.log("Employees by Department");
+        console.table(res);
+        start();
+    })
+}
 
-// function employeesByManager(){
-
-// }
-
+// function to add employee
 function addEmployee(){
     inquirer.prompt([
         {
@@ -153,7 +180,6 @@ function addEmployee(){
         getRoleNames(answer);    
     })
 }
-
 function getRoleNames(data){
     connection.query("SELECT title FROM roleTable",function(err,results){
         if (err) throw err;
@@ -177,7 +203,6 @@ function getRoleNames(data){
         })
     })
 }
-
 function getManagerNames(data,answer){
     connection.query("SELECT first_name,last_name FROM employee",function(err,results){
         if (err) throw err;
@@ -201,7 +226,6 @@ function getManagerNames(data,answer){
         })
     })
 }
-
 function createEmployee(data,answer,res){
     connection.query("INSERT INTO employee SET ?",
     {
@@ -211,10 +235,12 @@ function createEmployee(data,answer,res){
         manager_id:res[0].id
     },function(err) {
         if (err) throw err;
+        console.log("Added Employee Successfully");
         start();
       })
 }
 
+//function to add Department
 function addDepartment(){
     inquirer.prompt([
         {
@@ -229,11 +255,13 @@ function addDepartment(){
         },
         function(err){
             if (err) throw err;
+            console.log("Added Department Successfully");
             start();
         })
     })
 }
 
+//function to add Role
 function addRoles(){
     inquirer.prompt([
         {
@@ -250,7 +278,6 @@ function addRoles(){
         departName(res);
     })
 }
-
 function departName(res){
     connection.query("SELECT * FROM department",function(err,results){  
         if (err) throw err;
@@ -274,7 +301,6 @@ function departName(res){
         })
     })
 }
-
 function insertRole(res,response){
     connection.query("INSERT INTO roleTable SET ?",
         {
@@ -283,11 +309,13 @@ function insertRole(res,response){
             department_id: response[0].id
         },function(err) {
             if (err) throw err;
+            console.log("Added Role Successfully");
             start();
         }
     ) 
 }
 
+// function to remove Employee
 function removeEmployee(){
     connection.query("SELECT first_name FROM employee",function(err,results){
         inquirer.prompt([
@@ -306,12 +334,14 @@ function removeEmployee(){
         ]).then(function(data){
             connection.query("DELETE FROM employee WHERE ?", {first_name: data.employeeName},function(err){
                 if(err) throw err;
+                console.log("Removed Employee Successfully");
                 start();
             })
         })
     })  
 }
 
+// function to remove Role
 function removeRole(){
     connection.query("SELECT title FROM roleTable",function(err,results){
         inquirer.prompt([
@@ -330,12 +360,14 @@ function removeRole(){
         ]).then(function(data){
             connection.query("DELETE FROM roleTable WHERE ?", {title: data.roleName},function(err){
                 if(err) throw err;
+                console.log("Removed Role Successfully");
                 start();
             })
         })
     })  
 }
 
+// function to remove Department
 function removeDepartments(){
     connection.query("SELECT departmentname FROM department",function(err,results){
         inquirer.prompt([
@@ -354,12 +386,14 @@ function removeDepartments(){
         ]).then(function(data){
             connection.query("DELETE FROM department WHERE ?", {departmentname: data.deptname},function(err){
                 if(err) throw err;
+                console.log("Removed Department Successfully");
                 start();
             })
         })
     })
 }
 
+// function to update Employee Role
 function updateEmployeeRole(){
     connection.query("SELECT first_name FROM employee", function(err,res){
         inquirer.prompt([
@@ -380,7 +414,6 @@ function updateEmployeeRole(){
         })
     })
 }
-
 function roleUpdate(data){
     connection.query("SELECT title FROM roleTable",function(err,res){
         inquirer.prompt([
@@ -403,7 +436,6 @@ function roleUpdate(data){
         })
     })
 }
-
 function updateRolefunction(data,res){
     connection.query("UPDATE employee SET ? WHERE ?",
     [
@@ -415,18 +447,102 @@ function updateRolefunction(data,res){
         }
     ], function(err){
         if(err) throw err;
+        console.log("Updated Employee Role Successfully");
         start();
     })
 }
 
+// function to update Employee Manager
 function updateEmployeeManager(){
-
+    connection.query("SELECT first_name FROM employee", function(err,res){
+        inquirer.prompt([
+            {
+                name: "employeeName",
+                type: "rawlist",
+                message: "Which employee you want to update manager?",
+                choices:function(){
+                    var choiceArray = [];
+                    for (var i = 0; i < res.length; i++) {
+                        choiceArray.push(res[i].first_name);
+                    }
+                    return choiceArray;
+            }
+            }
+        ]).then(function(data){
+            managerUpdate(data) 
+        })
+    })
+}
+function managerUpdate(data){
+    connection.query("SELECT first_name FROM employee", function(err,res){
+        inquirer.prompt([
+            {
+                name: "managerName",
+                type: "rawlist",
+                message: "What is the new managers name?",
+                choices:function(){
+                    var choiceArray = [];
+                    for (var i = 0; i < res.length; i++) {
+                        choiceArray.push(res[i].first_name);
+                    }
+                    return choiceArray;
+            }
+            }
+        ]).then(function(response){
+            connection.query("SELECT id FROM employee WHERE ?",{first_name: response.managerName},function(err,answer){
+                updateManagerFunction(data,answer)
+            })
+        })
+    })
+}
+function updateManagerFunction(data,answer){
+    connection.query("UPDATE employee SET ? WHERE ?",
+    [
+        {
+            manager_id: answer[0].id
+        },
+        {
+            first_name: data.employeeName
+        }
+    ], function(err){
+        if(err) throw err;
+        console.log("Updated Employee manager Successfully");
+        start();
+    })
 }
 
-// function totalUtilizedBudget(){
+//function to find total utilized budget in a department
+function totalUtilizedBudget(){
+    connection.query("SELECT departmentname FROM department",function(err,res){
+        inquirer.prompt([
+            {
+                type: "rawlist",
+                message: "Select the department",
+                name: "deptName",
+                choices: function(){
+                    var choiceArray = [];
+                    for (var i = 0; i < res.length; i++) {
+                        choiceArray.push(res[i].departmentname);
+                }
+                    return choiceArray;
+                }
+            }
+        ]).then(function(data){
+            connection.query("SELECT id FROM department WHERE ?",{departmentname: data.deptName},function(err,response){
+                budget(response)
+            })
+        })
+    })
 
-// }
+}
+function budget(response){
+    connection.query("SELECT SUM(salary) FROM (SELECT employee.first_name,employee.last_name,employee.role_id,roleTable.salary,department.departmentname FROM ((employee INNER JOIN roleTable ON employee.role_id = roleTable.id) LEFT JOIN department ON department.id = roleTable.department_id) WHERE department.?) AS newTable",{id: response[0].id},function(err,res){
+        console.log("Total Utilized Budget in the department is: ", res[0]["SUM(salary)"]);   
+    })
+    start();
+}
 
+// function to exit
 function exitProcessing(){
     connection.end();
 }
